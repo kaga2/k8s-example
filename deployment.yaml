@@ -1,0 +1,38 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: example-api
+  labels:
+    app: example-api
+spec:
+  selector:
+    matchLabels:
+      app: example-api
+  template:
+    metadata:
+      labels:
+        app: example-api
+    spec:
+      initContainers:
+        - name: init-database
+          image: postgres:11
+          command: ["sh", "-c", 'psql -wtqc "SELECT NOW()" || createdb --no-password && echo "Database created: $PGDATABASE"']
+          envFrom:
+            - secretRef:
+                name: example-env
+        - name: init-migrations
+          image: docker/example-api
+          command: ["sh", "-c", "sequel -m api/database/migrations ${DATABASE_ENDPOINT}"]
+          envFrom:
+            - secretRef:
+                name: example-env
+      containers:
+        - name: example-api
+          image: docker/example-api
+          command: ["sh", "-c", "bundle exec rackup --port 8080 --host 0.0.0.0"]
+          ports:
+            - containerPort: 8080
+          envFrom:
+          - secretRef:
+              name: example-env
+
